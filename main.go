@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log"
 	"math/rand"
 	"os"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/io/system"
@@ -32,11 +34,16 @@ type CurrentTile struct {
 	PosY  int
 }
 
+type T = struct{}
+
 var gameBoard Board
 
-var frameRate int = 1
-var sinceLastFrameUpdate int = 0
-var secondsSinceLastCall int = 0
+var frameRate int64 = 1000
+var secondOnLastCall int64 = 0
+var secondsSinceLastCall int64 = 222
+var memory = 0
+
+var render = true
 
 func main() {
 
@@ -69,6 +76,7 @@ func main() {
 
 func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
 	var ops op.Ops
+
 	for {
 		e := <-w.Events()
 
@@ -78,46 +86,97 @@ func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
 		case system.FrameEvent:
 
 			ops.Reset()
-			draw(&ops, gameBoard, currentTile, &e)
-
-			redraw(&ops)
+			draw(&ops, gameBoard, currentTile)
 			e.Frame(&ops)
 
 		}
+
 	}
 }
 
-func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile, e *system.FrameEvent) {
-	//var tileSize float32 = 5
+func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile) {
+
 	var startX float32 = 0
 	var startY float32 = 0
 	var current bool = false
 
-	currentTile.PosX++
-	//fmt.Println(currentTile.PosX)
+	if secondsSinceLastCall == 222 {
+		secondOnLastCall = time.Now().UnixMilli()
+		fmt.Println(time.Now().UnixMilli())
+		secondsSinceLastCall = 0
+		//fmt.Println(secondOnLastCall)
+		fmt.Println(secondsSinceLastCall)
+	} else {
+		if time.Now().UnixMilli()-secondOnLastCall >= frameRate {
+			fmt.Println(time.Now().UnixMilli())
 
-	for i := 0; i < gameBoard.Rows; i++ {
+			secondsSinceLastCall = 222
+			render = true
+			// if secondOnLastCall >= 2 {
+			// 	render = true
 
-		for j := 0; j < gameBoard.Columns; j++ {
+			// }
 
-			if currentTile.PosX == j && currentTile.PosY == i {
-				current = true
-
-			}
-
-			drawTile(ops, startX, startY, current)
-			current = false
-			startX += 10
 		}
-		startX = 0
-		startY += 10
+	}
 
+	if render {
+
+		currentTile.PosX++
+		//fmt.Println(currentTile.PosX)
+
+		for i := 0; i < gameBoard.Rows; i++ {
+
+			for j := 0; j < gameBoard.Columns; j++ {
+
+				if currentTile.PosX == j && currentTile.PosY == i {
+					current = true
+
+				}
+
+				drawTile(ops, startX, startY, current)
+				current = false
+				startX += 10
+			}
+			startX = 0
+			startY += 10
+
+		}
+		render = false
+		op.InvalidateOp{}.Add(ops)
+
+	} else {
+		for i := 0; i < gameBoard.Rows; i++ {
+			for j := 0; j < gameBoard.Columns; j++ {
+				if currentTile.PosX == j && currentTile.PosY == i {
+					current = true
+				}
+				drawTile(ops, startX, startY, current)
+				current = false
+				startX += 10
+			}
+			startX = 0
+			startY += 10
+		}
+		op.InvalidateOp{}.Add(ops)
 	}
 
 }
 
 func redraw(ops *op.Ops) {
 	op.InvalidateOp{}.Add(ops)
+	// if secondsSinceLastCall == 222 {
+	// 	secondOnLastCall = time.Now().Second()
+	// 	secondsSinceLastCall = 0
+	// }
+	// if secondsSinceLastCall == 0 {
+	// 	if secondOnLastCall != time.Now().Second() {
+	// 		secondsSinceLastCall++
+	// 		fmt.Println("sekund!")
+	// 	}
+
+	// }
+
 }
 
 func drawTile(ops *op.Ops, xPos float32, yPos float32, current bool) {
