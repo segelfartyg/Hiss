@@ -23,12 +23,6 @@ type Board struct {
 	Columns int
 }
 
-type Tile struct {
-	Color int16
-	PosX  int
-	PosY  int
-}
-
 type PlayerTile struct {
 	Color       int16
 	PosX        int
@@ -45,14 +39,26 @@ type TrailingTile struct {
 }
 
 var gameBoard Board
-var frameRate int64 = 10
+var frameRate int64 = 1
 var secondOnLastCall int64 = 0
 var secondsSinceLastCall int64 = 222
 var memory = 0
 var render = true
-var direction = "right"
 
-var tailLength = 3
+// DIRECTIONS
+const (
+	Up    string = "up"
+	Right        = "right"
+	Down         = "down"
+	Left         = "left"
+)
+
+var direction string = Right
+
+// TILE CODES
+const (
+	NEWTILE int = 10003
+)
 
 func main() {
 
@@ -76,10 +82,23 @@ func main() {
 	secondTrailing.NextX = 19
 	secondTrailing.NextY = 20
 
-	playerTile.TrailingMap = make(map[int]TrailingTile)
+	thirdTrailing := new(TrailingTile)
+	thirdTrailing.PosX = 17
+	thirdTrailing.PosY = 20
+	thirdTrailing.NextX = 18
+	thirdTrailing.NextY = 20
 
+	fourthTrailing := new(TrailingTile)
+	fourthTrailing.PosX = 16
+	fourthTrailing.PosY = 20
+	fourthTrailing.NextX = 17
+	fourthTrailing.NextY = 20
+
+	playerTile.TrailingMap = make(map[int]TrailingTile)
 	playerTile.TrailingMap[1] = *firstTrailing
 	playerTile.TrailingMap[2] = *secondTrailing
+	playerTile.TrailingMap[3] = *thirdTrailing
+	playerTile.TrailingMap[4] = *fourthTrailing
 
 	go func() {
 		w := app.NewWindow(
@@ -87,19 +106,16 @@ func main() {
 			//app.MaxSize(unit.Dp(200), unit.Dp(200)),
 			app.MinSize(unit.Dp(500), unit.Dp(500)),
 		)
-
 		err := run(w, *gameBoard, playerTile)
 		if err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
-
 	}()
-
 	app.Main()
-
 }
 
+// RUNNING THE GAME
 func run(w *app.Window, gameBoard Board, playerTile *PlayerTile) error {
 	var ops op.Ops
 
@@ -119,16 +135,18 @@ func run(w *app.Window, gameBoard Board, playerTile *PlayerTile) error {
 				case key.Event:
 					switch gtxE.Name {
 					case "W":
-						direction = "up"
+						direction = Up
 					case "A":
-						direction = "left"
+						direction = Left
 					case "S":
-						direction = "down"
+						direction = Down
 					case "D":
-						direction = "right"
+						direction = Right
+					case "P":
+
+						addTrailing(playerTile)
 					}
 				}
-
 			}
 
 			eventArea := clip.Rect(
@@ -153,6 +171,7 @@ func run(w *app.Window, gameBoard Board, playerTile *PlayerTile) error {
 	return nil
 }
 
+// DRAW LOGIC FOR DISPLAYING THE ENTIRE BOARD
 func draw(ops *op.Ops, gameBoard Board, playerTile *PlayerTile) {
 
 	var startX float32 = 0
@@ -161,20 +180,11 @@ func draw(ops *op.Ops, gameBoard Board, playerTile *PlayerTile) {
 
 	if secondsSinceLastCall == 222 {
 		secondOnLastCall = time.Now().UnixMilli()
-
 		secondsSinceLastCall = 0
-		//fmt.Println(secondOnLastCall)
-
 	} else {
 		if time.Now().UnixMilli()-secondOnLastCall >= frameRate {
-
 			secondsSinceLastCall = 222
 			render = true
-			// if secondOnLastCall >= 2 {
-			// 	render = true
-
-			// }
-
 		}
 	}
 
@@ -184,17 +194,13 @@ func draw(ops *op.Ops, gameBoard Board, playerTile *PlayerTile) {
 		var playerLastPositionY int = playerTile.PosY
 
 		switch direction {
-		case "right":
-			playerLastPositionX = playerTile.PosX
+		case Right:
 			playerTile.PosX++
-		case "down":
-			playerLastPositionY = playerTile.PosY
+		case Down:
 			playerTile.PosY++
-		case "left":
-			playerLastPositionX = playerTile.PosX
+		case Left:
 			playerTile.PosX--
-		case "up":
-			playerLastPositionY = playerTile.PosY
+		case Up:
 			playerTile.PosY--
 		}
 
@@ -203,26 +209,41 @@ func draw(ops *op.Ops, gameBoard Board, playerTile *PlayerTile) {
 		var trailingY int = playerTile.TrailingMap[1].PosY
 
 		for i := 1; i <= len(playerTile.TrailingMap); i++ {
+
 			if i == 1 {
 				// CREATING NEW TILES WITH THE VALUE OF PLAYER TILE'S LAST POSITION
 				tempTrail := new(TrailingTile)
 				tempTrail.PosX = playerLastPositionX
 				tempTrail.PosY = playerLastPositionY
+				trailingX = playerTile.TrailingMap[i].PosX
+				trailingY = playerTile.TrailingMap[i].PosY
+
 				playerTile.TrailingMap[i] = *tempTrail
 
 			} else {
-				// ANOTHER VARIABLE FOR STORING POSITION OF FURTHER TRAILING TILES
-				tempTrailingX := trailingX
-				tempTrailingY := trailingY
 
-				tempTrail := new(TrailingTile)
-				tempTrail.PosX = tempTrailingX
-				tempTrail.PosY = tempTrailingY
-				playerTile.TrailingMap[i] = *tempTrail
+				if playerTile.TrailingMap[i].PosX != NEWTILE {
 
-				// PREPARING TEMP VARIABLES FOR NEXT ITERATION
-				trailingX = tempTrail.PosX
-				trailingY = tempTrail.PosY
+					// ANOTHER VARIABLE FOR STORING POSITION OF FURTHER TRAILING TILES
+
+					tempTrail := new(TrailingTile)
+					tempTrail.PosX = trailingX
+					tempTrail.PosY = trailingY
+
+					// PREPARING TEMP VARIABLES FOR NEXT ITERATION
+					trailingX = playerTile.TrailingMap[i].PosX
+					trailingY = playerTile.TrailingMap[i].PosY
+
+					playerTile.TrailingMap[i] = *tempTrail
+
+				} else {
+					newInsertedTrail := new(TrailingTile)
+					newInsertedTrail.PosX = trailingX
+					newInsertedTrail.PosY = trailingY
+					playerTile.TrailingMap[i] = *newInsertedTrail
+
+				}
+
 			}
 
 		}
@@ -276,6 +297,7 @@ func draw(ops *op.Ops, gameBoard Board, playerTile *PlayerTile) {
 
 }
 
+// DRAWING SPECIFIC TILE BASED OF CORDS
 func drawTile(ops *op.Ops, xPos float32, yPos float32, current bool) {
 
 	const r = 10
@@ -319,4 +341,14 @@ func drawTile(ops *op.Ops, xPos float32, yPos float32, current bool) {
 
 }
 
-//func drawTrailing
+// ADDING NEW TILE TO THE PLAYER TILE MAP
+func addTrailing(playerTile *PlayerTile) {
+
+	lastTrailingKey := len(playerTile.TrailingMap)
+	newTrailingKey := lastTrailingKey + 1
+	newTrailingEntity := new(TrailingTile)
+	newTrailingEntity.PosX = NEWTILE
+	newTrailingEntity.PosY = NEWTILE
+	playerTile.TrailingMap[newTrailingKey] = *newTrailingEntity
+
+}
