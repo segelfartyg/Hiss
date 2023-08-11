@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/io/key"
 	"gioui.org/io/system"
+	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -77,21 +79,56 @@ func main() {
 func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
 	var ops op.Ops
 
-	for {
-		e := <-w.Events()
+	for windowEvent := range w.Events() {
+		switch winE := windowEvent.(type) {
 
-		switch e := e.(type) {
 		case system.DestroyEvent:
-			return e.Err
+			return winE.Err
 		case system.FrameEvent:
 
-			ops.Reset()
-			draw(&ops, gameBoard, currentTile)
-			e.Frame(&ops)
+			gtx := layout.NewContext(&ops, winE)
 
+			//ops.Reset()
+
+			for _, gtxEvent := range gtx.Events(0) {
+
+				switch gtxE := gtxEvent.(type) {
+
+				case key.Event:
+					switch gtxE.Name {
+					case "W":
+						fmt.Println(gtxE.Name)
+					case "A":
+						fmt.Println(gtxE.Name)
+					case "S":
+						fmt.Println(gtxE.Name)
+					case "D":
+						fmt.Println(gtxE.Name)
+					}
+				}
+
+			}
+
+			eventArea := clip.Rect(
+				image.Rectangle{
+					Min: image.Point{0, 0},
+					Max: image.Point{gtx.Constraints.Max.X, gtx.Constraints.Max.Y},
+				},
+			).Push(gtx.Ops)
+
+			key.InputOp{
+				Keys: key.Set("(Shift)-F|(Shift)-S|(Shift)-U|(Shift)-D|(Shift)-J|(Shift)-K|(Shift)-W|(Shift)-N|Space"),
+				Tag:  0,
+			}.Add(gtx.Ops)
+
+			eventArea.Pop()
+
+			draw(gtx.Ops, gameBoard, currentTile)
+			winE.Frame(gtx.Ops)
 		}
 
 	}
+	return nil
 }
 
 func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile) {
