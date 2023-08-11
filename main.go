@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -30,22 +29,30 @@ type Tile struct {
 	PosY  int
 }
 
-type CurrentTile struct {
+type PlayerTile struct {
+	Color       int16
+	PosX        int
+	PosY        int
+	TrailingMap map[int]TrailingTile
+}
+
+type TrailingTile struct {
 	Color int16
 	PosX  int
 	PosY  int
+	NextX int
+	NextY int
 }
 
-type T = struct{}
-
 var gameBoard Board
-
-var frameRate int64 = 1000
+var frameRate int64 = 10
 var secondOnLastCall int64 = 0
 var secondsSinceLastCall int64 = 222
 var memory = 0
-
 var render = true
+var direction = "right"
+
+var tailLength = 3
 
 func main() {
 
@@ -53,9 +60,26 @@ func main() {
 	gameBoard.Rows = 50
 	gameBoard.Columns = 50
 
-	currentTile := new(CurrentTile)
-	currentTile.PosX = 20
-	currentTile.PosY = 20
+	playerTile := new(PlayerTile)
+	playerTile.PosX = 20
+	playerTile.PosY = 20
+
+	firstTrailing := new(TrailingTile)
+	firstTrailing.PosX = 19
+	firstTrailing.PosY = 20
+	firstTrailing.NextX = 20
+	firstTrailing.NextY = 20
+
+	secondTrailing := new(TrailingTile)
+	secondTrailing.PosX = 18
+	secondTrailing.PosY = 20
+	secondTrailing.NextX = 19
+	secondTrailing.NextY = 20
+
+	playerTile.TrailingMap = make(map[int]TrailingTile)
+
+	playerTile.TrailingMap[1] = *firstTrailing
+	playerTile.TrailingMap[2] = *secondTrailing
 
 	go func() {
 		w := app.NewWindow(
@@ -64,7 +88,7 @@ func main() {
 			app.MinSize(unit.Dp(500), unit.Dp(500)),
 		)
 
-		err := run(w, *gameBoard, currentTile)
+		err := run(w, *gameBoard, playerTile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -76,7 +100,7 @@ func main() {
 
 }
 
-func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
+func run(w *app.Window, gameBoard Board, playerTile *PlayerTile) error {
 	var ops op.Ops
 
 	for windowEvent := range w.Events() {
@@ -88,8 +112,6 @@ func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
 
 			gtx := layout.NewContext(&ops, winE)
 
-			//ops.Reset()
-
 			for _, gtxEvent := range gtx.Events(0) {
 
 				switch gtxE := gtxEvent.(type) {
@@ -97,13 +119,13 @@ func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
 				case key.Event:
 					switch gtxE.Name {
 					case "W":
-						fmt.Println(gtxE.Name)
+						direction = "up"
 					case "A":
-						fmt.Println(gtxE.Name)
+						direction = "left"
 					case "S":
-						fmt.Println(gtxE.Name)
+						direction = "down"
 					case "D":
-						fmt.Println(gtxE.Name)
+						direction = "right"
 					}
 				}
 
@@ -123,7 +145,7 @@ func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
 
 			eventArea.Pop()
 
-			draw(gtx.Ops, gameBoard, currentTile)
+			draw(gtx.Ops, gameBoard, playerTile)
 			winE.Frame(gtx.Ops)
 		}
 
@@ -131,7 +153,7 @@ func run(w *app.Window, gameBoard Board, currentTile *CurrentTile) error {
 	return nil
 }
 
-func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile) {
+func draw(ops *op.Ops, gameBoard Board, playerTile *PlayerTile) {
 
 	var startX float32 = 0
 	var startY float32 = 0
@@ -139,13 +161,12 @@ func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile) {
 
 	if secondsSinceLastCall == 222 {
 		secondOnLastCall = time.Now().UnixMilli()
-		fmt.Println(time.Now().UnixMilli())
+
 		secondsSinceLastCall = 0
 		//fmt.Println(secondOnLastCall)
-		fmt.Println(secondsSinceLastCall)
+
 	} else {
 		if time.Now().UnixMilli()-secondOnLastCall >= frameRate {
-			fmt.Println(time.Now().UnixMilli())
 
 			secondsSinceLastCall = 222
 			render = true
@@ -159,16 +180,65 @@ func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile) {
 
 	if render {
 
-		currentTile.PosX++
-		//fmt.Println(currentTile.PosX)
+		var playerLastPositionX int = playerTile.PosX
+		var playerLastPositionY int = playerTile.PosY
+
+		switch direction {
+		case "right":
+			playerLastPositionX = playerTile.PosX
+			playerTile.PosX++
+		case "down":
+			playerLastPositionY = playerTile.PosY
+			playerTile.PosY++
+		case "left":
+			playerLastPositionX = playerTile.PosX
+			playerTile.PosX--
+		case "up":
+			playerLastPositionY = playerTile.PosY
+			playerTile.PosY--
+		}
+
+		// SAVING TRAILING TILES POSITION IN TEMP VARIABLES
+		var trailingX int = playerTile.TrailingMap[1].PosX
+		var trailingY int = playerTile.TrailingMap[1].PosY
+
+		for i := 1; i <= len(playerTile.TrailingMap); i++ {
+			if i == 1 {
+				// CREATING NEW TILES WITH THE VALUE OF PLAYER TILE'S LAST POSITION
+				tempTrail := new(TrailingTile)
+				tempTrail.PosX = playerLastPositionX
+				tempTrail.PosY = playerLastPositionY
+				playerTile.TrailingMap[i] = *tempTrail
+
+			} else {
+				// ANOTHER VARIABLE FOR STORING POSITION OF FURTHER TRAILING TILES
+				tempTrailingX := trailingX
+				tempTrailingY := trailingY
+
+				tempTrail := new(TrailingTile)
+				tempTrail.PosX = tempTrailingX
+				tempTrail.PosY = tempTrailingY
+				playerTile.TrailingMap[i] = *tempTrail
+
+				// PREPARING TEMP VARIABLES FOR NEXT ITERATION
+				trailingX = tempTrail.PosX
+				trailingY = tempTrail.PosY
+			}
+
+		}
 
 		for i := 0; i < gameBoard.Rows; i++ {
 
 			for j := 0; j < gameBoard.Columns; j++ {
 
-				if currentTile.PosX == j && currentTile.PosY == i {
+				if playerTile.PosX == j && playerTile.PosY == i {
 					current = true
+				}
 
+				for _, v := range playerTile.TrailingMap {
+					if v.PosX == j && v.PosY == i {
+						current = true
+					}
 				}
 
 				drawTile(ops, startX, startY, current)
@@ -180,13 +250,19 @@ func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile) {
 
 		}
 		render = false
+
 		op.InvalidateOp{}.Add(ops)
 
 	} else {
 		for i := 0; i < gameBoard.Rows; i++ {
 			for j := 0; j < gameBoard.Columns; j++ {
-				if currentTile.PosX == j && currentTile.PosY == i {
+				if playerTile.PosX == j && playerTile.PosY == i {
 					current = true
+				}
+				for _, v := range playerTile.TrailingMap {
+					if v.PosX == j && v.PosY == i {
+						current = true
+					}
 				}
 				drawTile(ops, startX, startY, current)
 				current = false
@@ -197,22 +273,6 @@ func draw(ops *op.Ops, gameBoard Board, currentTile *CurrentTile) {
 		}
 		op.InvalidateOp{}.Add(ops)
 	}
-
-}
-
-func redraw(ops *op.Ops) {
-	op.InvalidateOp{}.Add(ops)
-	// if secondsSinceLastCall == 222 {
-	// 	secondOnLastCall = time.Now().Second()
-	// 	secondsSinceLastCall = 0
-	// }
-	// if secondsSinceLastCall == 0 {
-	// 	if secondOnLastCall != time.Now().Second() {
-	// 		secondsSinceLastCall++
-	// 		fmt.Println("sekund!")
-	// 	}
-
-	// }
 
 }
 
@@ -258,3 +318,5 @@ func drawTile(ops *op.Ops, xPos float32, yPos float32, current bool) {
 	)
 
 }
+
+//func drawTrailing
