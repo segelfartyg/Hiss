@@ -76,29 +76,8 @@ func main() {
 	firstTrailing.NextX = 20
 	firstTrailing.NextY = 20
 
-	secondTrailing := new(TrailingTile)
-	secondTrailing.PosX = 18
-	secondTrailing.PosY = 20
-	secondTrailing.NextX = 19
-	secondTrailing.NextY = 20
-
-	thirdTrailing := new(TrailingTile)
-	thirdTrailing.PosX = 17
-	thirdTrailing.PosY = 20
-	thirdTrailing.NextX = 18
-	thirdTrailing.NextY = 20
-
-	fourthTrailing := new(TrailingTile)
-	fourthTrailing.PosX = 16
-	fourthTrailing.PosY = 20
-	fourthTrailing.NextX = 17
-	fourthTrailing.NextY = 20
-
 	playerTile.TrailingMap = make(map[int]TrailingTile)
 	playerTile.TrailingMap[1] = *firstTrailing
-	playerTile.TrailingMap[2] = *secondTrailing
-	playerTile.TrailingMap[3] = *thirdTrailing
-	playerTile.TrailingMap[4] = *fourthTrailing
 
 	go func() {
 		w := app.NewWindow(
