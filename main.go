@@ -70,14 +70,7 @@ func main() {
 	playerTile.PosX = 20
 	playerTile.PosY = 20
 
-	firstTrailing := new(TrailingTile)
-	firstTrailing.PosX = 19
-	firstTrailing.PosY = 20
-	firstTrailing.NextX = 20
-	firstTrailing.NextY = 20
-
 	playerTile.TrailingMap = make(map[int]TrailingTile)
-	playerTile.TrailingMap[1] = *firstTrailing
 
 	go func() {
 		w := app.NewWindow(
@@ -85,6 +78,7 @@ func main() {
 			//app.MaxSize(unit.Dp(200), unit.Dp(200)),
 			app.MinSize(unit.Dp(500), unit.Dp(500)),
 		)
+
 		err := run(w, *gameBoard, playerTile)
 		if err != nil {
 			log.Fatal(err)
